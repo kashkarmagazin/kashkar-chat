@@ -18,12 +18,12 @@ function Load-History {
   if (-not (Test-Path $histFile)) { return @() }
   $plain = & openssl enc -d -aes-256-cbc -pbkdf2 -a -A -pass env:HIST_KEY -in $histFile 2>$null
   if (-not $plain) { return @() }
-  @(($plain -join "`n") | ConvertFrom-Json)
+  ($plain -join "`n") | ConvertFrom-Json
 }
 function Save-History($h) {
   $h = @($h | Select-Object -Last 40)
   $p = Join-Path $tmp "hist.json"
-  [IO.File]::WriteAllText($p, ($h | ConvertTo-Json -Depth 4 -Compress), (New-Object Text.UTF8Encoding($false)))
+  [IO.File]::WriteAllText($p, (ConvertTo-Json -InputObject $h -Depth 4 -Compress), (New-Object Text.UTF8Encoding($false)))
   & openssl enc -aes-256-cbc -pbkdf2 -a -A -salt -pass env:HIST_KEY -in $p -out $histFile
   Remove-Item $p
 }
@@ -66,7 +66,7 @@ $userText = $parts -join "`n"
 
 # 4) Claude
 Tg sendChatAction @{ chat_id = $owner; action = "typing" } | Out-Null
-$hist = Load-History
+$hist = @(Load-History)
 $histText = ($hist | ForEach-Object { "[$($_.t)] $($_.who): $($_.text)" }) -join "`n"
 $oshNow = [DateTime]::UtcNow.AddHours(6).ToString("dd.MM.yyyy HH:mm")
 $sys = @"
