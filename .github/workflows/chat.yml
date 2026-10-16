@@ -1,0 +1,35 @@
+name: Kashkar chat
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"     # har 5 daqiqada: kompyuter o'chiq bo'lsa, botdagi xabarlarga javob
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: chat
+  cancel-in-progress: false
+
+jobs:
+  chat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Javob berish
+        shell: pwsh
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT: ${{ secrets.TG_CHAT }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          HIST_KEY: ${{ secrets.HIST_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: ./chat.ps1
+      - name: Suhbatni saqlash
+        run: |
+          git config user.name "kashkar-bot"
+          git config user.email "kashkar-bot@users.noreply.github.com"
+          git add state
+          git diff --cached --quiet || (git commit -m "suhbat" && git pull --rebase -q && git push)
