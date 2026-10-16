@@ -27,6 +27,18 @@ function Save-History($h) {
   & openssl enc -aes-256-cbc -pbkdf2 -a -A -salt -pass env:HIST_KEY -in $p -out $histFile
   Remove-Item $p
 }
+# Umumiy tarixga yozish (kompyuter ham shu faylga yozadi): eng yangi holatni olib, qo'shib, push; to'qnashuvda qaytadan
+function Append-History($entries) {
+  for ($try = 0; $try -lt 5; $try++) {
+    & git -C $PSScriptRoot fetch -q origin main; & git -C $PSScriptRoot reset -q --hard origin/main
+    Save-History (@(Load-History) + $entries)
+    & git -C $PSScriptRoot add state/history.enc
+    & git -C $PSScriptRoot -c user.name=kashkar-bot -c user.email=kashkar-bot@users.noreply.github.com commit -qm "suhbat (bulut)"
+    & git -C $PSScriptRoot push -q origin HEAD:main 2>$null
+    if ($LASTEXITCODE -eq 0) { return }
+    Start-Sleep 3
+  }
+}
 
 # 1) Ko'rib chiqish (tasdiqlamasdan): kompyuter olmagan eski xabarlar bormi?
 $ups = @((Invoke-RestMethod "$api/getUpdates?timeout=0&allowed_updates=%5B%22message%22%5D" -TimeoutSec 30).result)
@@ -67,7 +79,7 @@ $userText = $parts -join "`n"
 # 4) Claude
 Tg sendChatAction @{ chat_id = $owner; action = "typing" } | Out-Null
 $hist = @(Load-History)
-$histText = ($hist | ForEach-Object { "[$($_.t)] $($_.who): $($_.text)" }) -join "`n"
+$histText = ($hist | ForEach-Object { $w = if ($_.src -eq "kompyuter") { "💻" } else { "☁️" }; "[$($_.t) $w] $($_.who): $($_.text)" }) -join "`n"
 $oshNow = [DateTime]::UtcNow.AddHours(6).ToString("dd.MM.yyyy HH:mm")
 $sys = @"
 Sen Kashkar magazini (Osh, Qirg'iziston, kiyim-kechak/tovarlar do'koni, Instagram: kashkar_magazin, WhatsApp 0550 175 667) egasi Yusufning shaxsiy yordamchisisan. U Telegram botga telefondan yozyapti.
@@ -86,7 +98,7 @@ try { $ans = ($raw | ConvertFrom-Json).result } catch { $ans = $null }
 if (-not $ans) { $ans = "Bulutda xatolik bo'ldi, javob bera olmadim. Kompyuter yoqilganda qayta yozing."; "claude javobi o'qilmadi" }
 Say ("☁️ " + $ans)
 
-$hist += [pscustomobject]@{ t = $oshNow; who = "Yusuf"; text = $userText }
-$hist += [pscustomobject]@{ t = $oshNow; who = "Yordamchi"; text = $ans }
-Save-History $hist
+Append-History @(
+  [pscustomobject]@{ id = [guid]::NewGuid().ToString(); src = "bulut"; t = $oshNow; who = "Yusuf"; text = $userText },
+  [pscustomobject]@{ id = [guid]::NewGuid().ToString(); src = "bulut"; t = $oshNow; who = "Yordamchi"; text = $ans })
 "javob yuborildi"

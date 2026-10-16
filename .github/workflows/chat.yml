@@ -26,10 +26,4 @@ jobs:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
           HIST_KEY: ${{ secrets.HIST_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: ./chat.ps1
-      - name: Suhbatni saqlash
-        run: |
-          git config user.name "kashkar-bot"
-          git config user.email "kashkar-bot@users.noreply.github.com"
-          git add state
-          git diff --cached --quiet || (git commit -m "suhbat" && git pull --rebase -q && git push)
+        run: ./chat.ps1   # suhbat tarixini o'zi saqlaydi (Append-History)
