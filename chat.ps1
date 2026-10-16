@@ -1,4 +1,4 @@
-# Kompyuter o'chiq bo'lganda Telegram botga kelgan xabarlarga bulutda (GitHub Actions) Claude orqali javob beradi.
+﻿# Kompyuter o'chiq bo'lganda Telegram botga kelgan xabarlarga bulutda (GitHub Actions) Claude orqali javob beradi.
 # Kompyuterdagi bot.ps1 xabarni bir zumda oladi; agar xabar 60 soniyadan beri olinmagan bo'lsa — kompyuter o'chiq, javobni shu skript beradi.
 $ErrorActionPreference = "Stop"
 $tg = $env:TG_TOKEN; $owner = $env:TG_CHAT
@@ -41,12 +41,15 @@ function Append-History($entries) {
 }
 
 # 1) Ko'rib chiqish (tasdiqlamasdan): kompyuter olmagan eski xabarlar bormi?
-$ups = @((Invoke-RestMethod "$api/getUpdates?timeout=0&allowed_updates=%5B%22message%22%5D" -TimeoutSec 30).result)
-if (-not $ups) { "bo'sh"; return }
+$ups = @((Invoke-RestMethod "$api/getUpdates?timeout=0&allowed_updates=%5B%22message%22,%22callback_query%22%5D" -TimeoutSec 30).result)
+if (-not @($ups | Where-Object { $_.message })) { "bo'sh (tugma bosishlari bo'lsa kompyuter yoqilganda bajariladi)"; return }
 $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-if (($ups | ForEach-Object { $_.message.date } | Measure-Object -Minimum).Minimum -gt $now - 60) { "kompyuter ishlayapti (yangi xabarlar bor, kutamiz)"; return }
+if (($ups | Where-Object { $_.message } | ForEach-Object { $_.message.date } | Measure-Object -Minimum).Minimum -gt $now - 60) { "kompyuter ishlayapti (yangi xabarlar bor, kutamiz)"; return }
 # 2) Tasdiqlash — endi bu xabarlar bizniki
 $null = Invoke-RestMethod "$api/getUpdates?timeout=0&offset=$(($ups[-1].update_id) + 1)" -TimeoutSec 30
+foreach ($cb in @($ups | Where-Object { $_.callback_query } | ForEach-Object { $_.callback_query })) {
+  try { Tg answerCallbackQuery @{ callback_query_id = $cb.id; text = "Kompyuter o'chiq. Yoqilgach tugmani qayta bosing." } | Out-Null } catch {}
+}
 $msgs = @($ups | Where-Object { $_.message -and "$($_.message.chat.id)" -eq $owner } | ForEach-Object { $_.message })
 if (-not $msgs) { "begona xabarlar o'tkazib yuborildi"; return }
 
