@@ -50,7 +50,23 @@ $null = Invoke-RestMethod "$api/getUpdates?timeout=0&offset=$(($ups[-1].update_i
 foreach ($cb in @($ups | Where-Object { $_.callback_query } | ForEach-Object { $_.callback_query })) {
   try { Tg answerCallbackQuery @{ callback_query_id = $cb.id; text = "Kompyuter o'chiq. Yoqilgach tugmani qayta bosing." } | Out-Null } catch {}
 }
+# Xodimlar (egasi emas, shaxsiy chat): faqat CRM ilovasi havolasi — Claude ishga tushmaydi
+$crmUrl = "https://kashkarmagazin.github.io/crm/"
+$staffText = @"
+Assalomu alaykum! KASHKAR_MAGAZIN xodimlari uchun kassa ilovasi:
+$crmUrl
+
+Telefonga o'rnatish:
+- Android: havolani Chrome'da oching (Telegram ichida bo'lsa ⋮ → «Brauzerda ochish») → «O'rnatish» tugmasi yoki ⋮ → «Ilovani o'rnatish».
+- iPhone: havolani Safari'da oching → pastdagi «Ulashish» ⬆ → «На экран Домой» → «Добавить».
+
+Kirish uchun email va parolni do'kon egasidan oling.
+"@
+foreach ($sm in @($ups | Where-Object { $_.message -and "$($_.message.chat.id)" -ne $owner -and $_.message.chat.type -eq "private" } | ForEach-Object { $_.message })) {
+  try { Tg sendMessage @{ chat_id = $sm.chat.id; text = $staffText; disable_web_page_preview = $true; reply_markup = @{ inline_keyboard = @(, @(@{ text = "📲 Ilovani ochish"; url = $crmUrl })) } } | Out-Null } catch {}
+}
 $msgs = @($ups | Where-Object { $_.message -and "$($_.message.chat.id)" -eq $owner } | ForEach-Object { $_.message })
+if (@($msgs | Where-Object { "$($_.text)" -match '^/crm' })) { Tg sendMessage @{ chat_id = $owner; text = "CRM ilovasi: $crmUrl"; reply_markup = @{ inline_keyboard = @(, @(@{ text = "📲 Ilovani ochish"; url = $crmUrl })) } } | Out-Null; $msgs = @($msgs | Where-Object { "$($_.text)" -notmatch '^/crm' }) }
 if (-not $msgs) { "begona xabarlar o'tkazib yuborildi"; return }
 
 # 3) Xabarlarni matnga aylantirish
